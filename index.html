@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arbitrage Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .tab-active {
+            background-color: #4f46e5;
+            color: white;
+        }
+        .tab-inactive {
+            background-color: #e0e7ff;
+            color: #4338ca;
+        }
+        .result-card {
+            background-color: #f9fafb;
+            border: 1px solid #e5e7eb;
+        }
+        .profit {
+            color: #16a34a; /* green-600 */
+        }
+        .no-arb {
+            color: #dc2626; /* red-600 */
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+    <div class="container mx-auto p-4 md:p-8 max-w-4xl">
+        
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-gray-900">Arbitrage Calculator</h1>
+            <p class="text-md text-gray-600 mt-2">Find guaranteed profit in sports betting markets.</p>
+        </header>
+
+        <!-- Tab Navigation -->
+        <div class="mb-6 flex justify-center border-b border-gray-300">
+            <button id="tab-2way" class="py-2 px-6 font-semibold rounded-t-lg -mb-px tab-active" onclick="showCalculator('2way')">2-Way Bet</button>
+            <button id="tab-3way" class="py-2 px-6 font-semibold rounded-t-lg tab-inactive" onclick="showCalculator('3way')">3-Way Bet</button>
+        </div>
+
+        <!-- 2-Way Calculator -->
+        <div id="calculator-2way">
+            <div class="bg-white p-6 rounded-2xl shadow-lg">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Inputs -->
+                    <div class="space-y-4">
+                        <h3 class="text-xl font-semibold text-gray-800 border-b pb-2">Enter Bet Details</h3>
+                        <div>
+                            <label for="bet-amount-2way" class="block text-sm font-medium text-gray-700 mb-1">Bet Amount ($)</label>
+                            <input type="number" id="bet-amount-2way" value="10" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div class="space-y-3">
+                            <label class="block text-sm font-medium text-gray-700">Set bet amount for:</label>
+                            <div class="flex items-center">
+                                <input type="radio" id="fixed-bet-1-2way" name="fixed-bet-2way" value="1" class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500" checked>
+                                <label for="fixed-bet-1-2way" class="ml-2 block text-sm text-gray-900">Outcome 1</label>
+                            </div>
+                            <div>
+                                <input type="text" id="odds1-2way" placeholder="Outcome 1 Odds (-110 or 1.91)" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                        </div>
+                         <div class="space-y-3">
+                            <div class="flex items-center">
+                                <input type="radio" id="fixed-bet-2-2way" name="fixed-bet-2way" value="2" class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500">
+                                <label for="fixed-bet-2-2way" class="ml-2 block text-sm text-gray-900">Outcome 2</label>
+                            </div>
+                            <div>
+                                <input type="text" id="odds2-2way" placeholder="Outcome 2 Odds (120 or 2.20)" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                            </div>
+                        </div>
+                        <button id="calculate-2way" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 transition duration-300 shadow-md">Calculate</button>
+                    </div>
+
+                    <!-- Results -->
+                    <div class="space-y-4">
+                        <h3 class="text-xl font-semibold text-gray-800 border-b pb-2">Results</h3>
+                        <div id="results-2way" class="p-4 rounded-lg result-card space-y-3">
+                            <p class="text-center text-gray-500">Enter odds and bet amount to see results.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3-Way Calculator -->
+        <div id="calculator-3way" class="hidden">
+            <div class="bg-white p-6 rounded-2xl shadow-lg">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Inputs -->
+                    <div class="space-y-4">
+                        <h3 class="text-xl font-semibold text-gray-800 border-b pb-2">Enter Bet Details</h3>
+                        <div>
+                            <label for="bet-amount-3way" class="block text-sm font-medium text-gray-700 mb-1">Bet Amount ($)</label>
+                            <input type="number" id="bet-amount-3way" value="10" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div class="space-y-3">
+                             <label class="block text-sm font-medium text-gray-700">Set bet amount for:</label>
+                            <div class="flex items-center">
+                                <input type="radio" id="fixed-bet-1-3way" name="fixed-bet-3way" value="1" class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500" checked>
+                                <label for="fixed-bet-1-3way" class="ml-2 block text-sm text-gray-900">Outcome 1</label>
+                            </div>
+                            <input type="text" id="odds1-3way" placeholder="Outcome 1 Odds" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                         <div class="space-y-3">
+                            <div class="flex items-center">
+                                <input type="radio" id="fixed-bet-2-3way" name="fixed-bet-3way" value="2" class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500">
+                                <label for="fixed-bet-2-3way" class="ml-2 block text-sm text-gray-900">Outcome 2</label>
+                            </div>
+                            <input type="text" id="odds2-3way" placeholder="Outcome 2 Odds" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                         <div class="space-y-3">
+                            <div class="flex items-center">
+                                <input type="radio" id="fixed-bet-3-3way" name="fixed-bet-3way" value="3" class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500">
+                                <label for="fixed-bet-3-3way" class="ml-2 block text-sm text-gray-900">Outcome 3</label>
+                            </div>
+                            <input type="text" id="odds3-3way" placeholder="Outcome 3 Odds" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <button id="calculate-3way" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 transition duration-300 shadow-md">Calculate</button>
+                    </div>
+
+                    <!-- Results -->
+                    <div class="space-y-4">
+                        <h3 class="text-xl font-semibold text-gray-800 border-b pb-2">Results</h3>
+                        <div id="results-3way" class="p-4 rounded-lg result-card space-y-3">
+                            <p class="text-center text-gray-500">Enter odds and bet amount to see results.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const tab2Way = document.getElementById('tab-2way');
+        const tab3Way = document.getElementById('tab-3way');
+        const calc2WayDiv = document.getElementById('calculator-2way');
+        const calc3WayDiv = document.getElementById('calculator-3way');
+        
+        const calculate2WayBtn = document.getElementById('calculate-2way');
+        const calculate3WayBtn = document.getElementById('calculate-3way');
+        
+        const results2WayDiv = document.getElementById('results-2way');
+        const results3WayDiv = document.getElementById('results-3way');
+
+        // --- Core Logic ---
+
+        /**
+         * Converts American odds to decimal odds.
+         * @param {string|number} americanOdds - The American odds (e.g., "-110", "120").
+         * @returns {number|null} The decimal odds or null if invalid.
+         */
+        function convertAmericanToDecimal(americanOdds) {
+            const odds = Number(americanOdds);
+            if (isNaN(odds)) return null;
+            if (odds > 0) {
+                return (odds / 100) + 1;
+            } else if (odds < 0) {
+                return (100 / Math.abs(odds)) + 1;
+            }
+            return null; // Should not happen with valid odds
+        }
+
+        /**
+         * Parses odds input, which can be American or Decimal, with improved logic.
+         * @param {string} oddsString - The input string from the user.
+         * @returns {number|null} The odds in decimal format or null if invalid.
+         */
+        function parseOdds(oddsString) {
+            if (!oddsString || oddsString.trim() === '') return null;
+            const trimmedOddsString = oddsString.trim();
+            
+            if (trimmedOddsString.startsWith('+') || trimmedOddsString.startsWith('-')) {
+                const odds = Number(trimmedOddsString);
+                if (isNaN(odds)) return null;
+                return convertAmericanToDecimal(odds);
+            }
+
+            const odds = parseFloat(trimmedOddsString);
+            if (isNaN(odds)) return null;
+
+            if (trimmedOddsString.includes('.') && odds > 1) {
+                return odds;
+            }
+
+            if (odds >= 100 && Math.floor(odds) === odds) {
+                return convertAmericanToDecimal(odds);
+            }
+            
+            if (odds > 1) {
+                return odds;
+            }
+            
+            return null; // Invalid format
+        }
+
+
+        /**
+         * Formats a number as a currency string.
+         * @param {number} value - The number to format.
+         * @returns {string} The formatted currency string.
+         */
+        function formatCurrency(value) {
+            return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+        }
+
+        /**
+         * Displays the calculation results in the specified container.
+         * @param {HTMLElement} container - The div to display results in.
+         * @param {object} data - The calculated arbitrage data.
+         */
+        function displayResults(container, data) {
+            if (data.isArb) {
+                let betSlips = '';
+                data.bets.forEach((bet, index) => {
+                    betSlips += `
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">Bet on Outcome ${index + 1}:</span>
+                            <span class="font-bold text-gray-800">${formatCurrency(bet)}</span>
+                        </div>
+                    `;
+                });
+
+                container.innerHTML = `
+                    <div class="text-center mb-4">
+                        <p class="text-lg font-semibold profit">Arbitrage Opportunity Found!</p>
+                        <p class="text-3xl font-bold profit">${data.profitPercentage.toFixed(2)}%</p>
+                    </div>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">Total Profit:</span>
+                            <span class="font-bold text-lg profit">${formatCurrency(data.totalProfit)}</span>
+                        </div>
+                        <hr class="my-2">
+                        ${betSlips}
+                        <hr class="my-2">
+                        <div class="flex justify-between items-center font-semibold">
+                            <span class="text-gray-600">Total Wagered:</span>
+                            <span class="text-gray-900">${formatCurrency(data.totalWagered)}</span>
+                        </div>
+                         <div class="flex justify-between items-center font-semibold">
+                            <span class="text-gray-600">Guaranteed Return:</span>
+                            <span class="text-gray-900">${formatCurrency(data.guaranteedReturn)}</span>
+                        </div>
+                    </div>
+                `;
+            } else {
+                container.innerHTML = `
+                    <div class="text-center">
+                        <p class="text-lg font-semibold no-arb">No Arbitrage Opportunity</p>
+                        <p class="text-sm text-gray-600">The implied probability is ${data.impliedProbability.toFixed(2)}%, which is over 100%.</p>
+                    </div>
+                `;
+            }
+        }
+
+        // --- Event Listeners and Handlers ---
+
+        /**
+         * Handles the calculation for 2-way arbitrage.
+         */
+        function handleCalculate2Way() {
+            const fixedBetAmount = parseFloat(document.getElementById('bet-amount-2way').value);
+            const odds1 = parseOdds(document.getElementById('odds1-2way').value);
+            const odds2 = parseOdds(document.getElementById('odds2-2way').value);
+            const fixedBetOn = document.querySelector('input[name="fixed-bet-2way"]:checked').value;
+
+            if (isNaN(fixedBetAmount) || !odds1 || !odds2) {
+                results2WayDiv.innerHTML = `<p class="text-center no-arb">Please enter a valid bet amount and odds.</p>`;
+                return;
+            }
+
+            const prob1 = 1 / odds1;
+            const prob2 = 1 / odds2;
+            const totalProb = prob1 + prob2;
+
+            if (totalProb < 1) {
+                let betAmount1, betAmount2, guaranteedReturn;
+
+                if (fixedBetOn === '1') {
+                    betAmount1 = fixedBetAmount;
+                    guaranteedReturn = betAmount1 * odds1;
+                    betAmount2 = guaranteedReturn / odds2;
+                } else { // fixedBetOn === '2'
+                    betAmount2 = fixedBetAmount;
+                    guaranteedReturn = betAmount2 * odds2;
+                    betAmount1 = guaranteedReturn / odds1;
+                }
+
+                const totalWagered = betAmount1 + betAmount2;
+                const totalProfit = guaranteedReturn - totalWagered;
+                const profitPercentage = (totalProfit / totalWagered) * 100;
+
+                displayResults(results2WayDiv, {
+                    isArb: true,
+                    profitPercentage,
+                    totalProfit,
+                    bets: [betAmount1, betAmount2],
+                    totalWagered,
+                    guaranteedReturn
+                });
+            } else {
+                displayResults(results2WayDiv, {
+                    isArb: false,
+                    impliedProbability: totalProb * 100
+                });
+            }
+        }
+
+        /**
+         * Handles the calculation for 3-way arbitrage.
+         */
+        function handleCalculate3Way() {
+            const fixedBetAmount = parseFloat(document.getElementById('bet-amount-3way').value);
+            const odds1 = parseOdds(document.getElementById('odds1-3way').value);
+            const odds2 = parseOdds(document.getElementById('odds2-3way').value);
+            const odds3 = parseOdds(document.getElementById('odds3-3way').value);
+            const fixedBetOn = document.querySelector('input[name="fixed-bet-3way"]:checked').value;
+
+            if (isNaN(fixedBetAmount) || !odds1 || !odds2 || !odds3) {
+                results3WayDiv.innerHTML = `<p class="text-center no-arb">Please enter a valid bet amount and all three odds.</p>`;
+                return;
+            }
+            
+            const prob1 = 1 / odds1;
+            const prob2 = 1 / odds2;
+            const prob3 = 1 / odds3;
+            const totalProb = prob1 + prob2 + prob3;
+
+            if (totalProb < 1) {
+                let betAmount1, betAmount2, betAmount3, guaranteedReturn;
+
+                if (fixedBetOn === '1') {
+                    betAmount1 = fixedBetAmount;
+                    guaranteedReturn = betAmount1 * odds1;
+                    betAmount2 = guaranteedReturn / odds2;
+                    betAmount3 = guaranteedReturn / odds3;
+                } else if (fixedBetOn === '2') {
+                    betAmount2 = fixedBetAmount;
+                    guaranteedReturn = betAmount2 * odds2;
+                    betAmount1 = guaranteedReturn / odds1;
+                    betAmount3 = guaranteedReturn / odds3;
+                } else { // fixedBetOn === '3'
+                    betAmount3 = fixedBetAmount;
+                    guaranteedReturn = betAmount3 * odds3;
+                    betAmount1 = guaranteedReturn / odds1;
+                    betAmount2 = guaranteedReturn / odds2;
+                }
+
+                const totalWagered = betAmount1 + betAmount2 + betAmount3;
+                const totalProfit = guaranteedReturn - totalWagered;
+                const profitPercentage = (totalProfit / totalWagered) * 100;
+
+                displayResults(results3WayDiv, {
+                    isArb: true,
+                    profitPercentage,
+                    totalProfit,
+                    bets: [betAmount1, betAmount2, betAmount3],
+                    totalWagered,
+                    guaranteedReturn
+                });
+            } else {
+                displayResults(results3WayDiv, {
+                    isArb: false,
+                    impliedProbability: totalProb * 100
+                });
+            }
+        }
+
+        /**
+         * Switches the visible calculator tab.
+         * @param {'2way'|'3way'} type - The calculator to show.
+         */
+        function showCalculator(type) {
+            if (type === '2way') {
+                calc2WayDiv.classList.remove('hidden');
+                calc3WayDiv.classList.add('hidden');
+                tab2Way.classList.add('tab-active');
+                tab2Way.classList.remove('tab-inactive');
+                tab3Way.classList.add('tab-inactive');
+                tab3Way.classList.remove('tab-active');
+            } else {
+                calc2WayDiv.classList.add('hidden');
+                calc3WayDiv.classList.remove('hidden');
+                tab3Way.classList.add('tab-active');
+                tab3Way.classList.remove('tab-inactive');
+                tab2Way.classList.add('tab-inactive');
+                tab2Way.classList.remove('tab-active');
+            }
+        }
+        
+        // --- Attach Event Listeners ---
+        calculate2WayBtn.addEventListener('click', handleCalculate2Way);
+        calculate3WayBtn.addEventListener('click', handleCalculate3Way);
+
+    </script>
+</body>
+</html>
