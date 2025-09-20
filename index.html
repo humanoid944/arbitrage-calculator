@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arbitrage Calculator</title>
+    <title>Arbitrage & Hedging Calculator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -25,7 +25,7 @@
         .profit {
             color: #16a34a; /* green-600 */
         }
-        .no-arb {
+        .loss {
             color: #dc2626; /* red-600 */
         }
     </style>
@@ -35,8 +35,8 @@
     <div class="container mx-auto p-4 md:p-8 max-w-4xl">
         
         <header class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-gray-900">Arbitrage Calculator</h1>
-            <p class="text-md text-gray-600 mt-2">Find guaranteed profit in sports betting markets.</p>
+            <h1 class="text-4xl font-bold text-gray-900">Arbitrage & Hedging Calculator</h1>
+            <p class="text-md text-gray-600 mt-2">Find guaranteed profit or calculate bets for minimized loss.</p>
         </header>
 
         <!-- Tab Navigation -->
@@ -153,82 +153,44 @@
 
         // --- Core Logic ---
 
-        /**
-         * Converts American odds to decimal odds.
-         * @param {string|number} americanOdds - The American odds (e.g., "-110", "120").
-         * @returns {number|null} The decimal odds or null if invalid.
-         */
         function convertAmericanToDecimal(americanOdds) {
             const odds = Number(americanOdds);
             if (isNaN(odds)) return null;
-            if (odds > 0) {
-                return (odds / 100) + 1;
-            } else if (odds < 0) {
-                return (100 / Math.abs(odds)) + 1;
-            }
-            return null; // Should not happen with valid odds
+            if (odds > 0) return (odds / 100) + 1;
+            if (odds < 0) return (100 / Math.abs(odds)) + 1;
+            return null;
         }
 
-        /**
-         * Parses odds input, which can be American or Decimal, with improved logic.
-         * @param {string} oddsString - The input string from the user.
-         * @returns {number|null} The odds in decimal format or null if invalid.
-         */
         function parseOdds(oddsString) {
             if (!oddsString || oddsString.trim() === '') return null;
-            const trimmedOddsString = oddsString.trim();
-            
-            if (trimmedOddsString.startsWith('+') || trimmedOddsString.startsWith('-')) {
-                const odds = Number(trimmedOddsString);
-                if (isNaN(odds)) return null;
-                return convertAmericanToDecimal(odds);
+            const trimmed = oddsString.trim();
+            if (trimmed.startsWith('+') || trimmed.startsWith('-')) {
+                return convertAmericanToDecimal(Number(trimmed));
             }
-
-            const odds = parseFloat(trimmedOddsString);
+            const odds = parseFloat(trimmed);
             if (isNaN(odds)) return null;
-
-            if (trimmedOddsString.includes('.') && odds > 1) {
-                return odds;
-            }
-
-            if (odds >= 100 && Math.floor(odds) === odds) {
-                return convertAmericanToDecimal(odds);
-            }
-            
-            if (odds > 1) {
-                return odds;
-            }
-            
-            return null; // Invalid format
+            if (trimmed.includes('.') && odds > 1) return odds;
+            if (odds >= 100 && Math.floor(odds) === odds) return convertAmericanToDecimal(odds);
+            if (odds > 1) return odds;
+            return null;
         }
 
-
-        /**
-         * Formats a number as a currency string.
-         * @param {number} value - The number to format.
-         * @returns {string} The formatted currency string.
-         */
         function formatCurrency(value) {
             return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
         }
 
-        /**
-         * Displays the calculation results in the specified container.
-         * @param {HTMLElement} container - The div to display results in.
-         * @param {object} data - The calculated arbitrage data.
-         */
         function displayResults(container, data) {
-            if (data.isArb) {
-                let betSlips = '';
-                data.bets.forEach((bet, index) => {
-                    betSlips += `
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600">Bet on Outcome ${index + 1}:</span>
-                            <span class="font-bold text-gray-800">${formatCurrency(bet)}</span>
-                        </div>
-                    `;
-                });
+            let betSlips = '';
+            data.bets.forEach((bet, index) => {
+                betSlips += `
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600">Bet on Outcome ${index + 1}:</span>
+                        <span class="font-bold text-gray-800">${formatCurrency(bet)}</span>
+                    </div>
+                `;
+            });
 
+            if (data.isArb) {
                 container.innerHTML = `
                     <div class="text-center mb-4">
                         <p class="text-lg font-semibold profit">Arbitrage Opportunity Found!</p>
@@ -246,27 +208,43 @@
                             <span class="text-gray-600">Total Wagered:</span>
                             <span class="text-gray-900">${formatCurrency(data.totalWagered)}</span>
                         </div>
+                        <div class="flex justify-between items-center font-semibold">
+                            <span class="text-gray-600">Guaranteed Return:</span>
+                            <span class="text-gray-900">${formatCurrency(data.guaranteedReturn)}</span>
+                        </div>
+                    </div>
+                `;
+            } else { // No arbitrage, show minimized loss
+                container.innerHTML = `
+                    <div class="text-center mb-4">
+                        <p class="text-lg font-semibold loss">No Arbitrage Opportunity</p>
+                        <p class="text-sm text-gray-600">(Implied Probability: ${data.impliedProbability.toFixed(2)}%)</p>
+                        <p class="text-3xl font-bold loss">-${data.lossPercentage.toFixed(2)}%</p>
+                    </div>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">Guaranteed Loss:</span>
+                            <span class="font-bold text-lg loss">${formatCurrency(data.totalLoss)}</span>
+                        </div>
+                        <hr class="my-2">
+                        <h4 class="font-semibold text-center text-gray-700">Bets for Minimized Loss</h4>
+                        ${betSlips}
+                        <hr class="my-2">
+                        <div class="flex justify-between items-center font-semibold">
+                            <span class="text-gray-600">Total Wagered:</span>
+                            <span class="text-gray-900">${formatCurrency(data.totalWagered)}</span>
+                        </div>
                          <div class="flex justify-between items-center font-semibold">
                             <span class="text-gray-600">Guaranteed Return:</span>
                             <span class="text-gray-900">${formatCurrency(data.guaranteedReturn)}</span>
                         </div>
                     </div>
                 `;
-            } else {
-                container.innerHTML = `
-                    <div class="text-center">
-                        <p class="text-lg font-semibold no-arb">No Arbitrage Opportunity</p>
-                        <p class="text-sm text-gray-600">The implied probability is ${data.impliedProbability.toFixed(2)}%, which is over 100%.</p>
-                    </div>
-                `;
             }
         }
 
-        // --- Event Listeners and Handlers ---
+        // --- Event Handlers ---
 
-        /**
-         * Handles the calculation for 2-way arbitrage.
-         */
         function handleCalculate2Way() {
             const fixedBetAmount = parseFloat(document.getElementById('bet-amount-2way').value);
             const odds1 = parseOdds(document.getElementById('odds1-2way').value);
@@ -274,50 +252,35 @@
             const fixedBetOn = document.querySelector('input[name="fixed-bet-2way"]:checked').value;
 
             if (isNaN(fixedBetAmount) || !odds1 || !odds2) {
-                results2WayDiv.innerHTML = `<p class="text-center no-arb">Please enter a valid bet amount and odds.</p>`;
+                results2WayDiv.innerHTML = `<p class="text-center loss">Please enter a valid bet amount and odds.</p>`;
                 return;
             }
 
-            const prob1 = 1 / odds1;
-            const prob2 = 1 / odds2;
-            const totalProb = prob1 + prob2;
+            let betAmount1, betAmount2, guaranteedReturn;
+            if (fixedBetOn === '1') {
+                betAmount1 = fixedBetAmount;
+                guaranteedReturn = betAmount1 * odds1;
+                betAmount2 = guaranteedReturn / odds2;
+            } else {
+                betAmount2 = fixedBetAmount;
+                guaranteedReturn = betAmount2 * odds2;
+                betAmount1 = guaranteedReturn / odds1;
+            }
+
+            const totalWagered = betAmount1 + betAmount2;
+            const totalProb = (1 / odds1) + (1 / odds2);
 
             if (totalProb < 1) {
-                let betAmount1, betAmount2, guaranteedReturn;
-
-                if (fixedBetOn === '1') {
-                    betAmount1 = fixedBetAmount;
-                    guaranteedReturn = betAmount1 * odds1;
-                    betAmount2 = guaranteedReturn / odds2;
-                } else { // fixedBetOn === '2'
-                    betAmount2 = fixedBetAmount;
-                    guaranteedReturn = betAmount2 * odds2;
-                    betAmount1 = guaranteedReturn / odds1;
-                }
-
-                const totalWagered = betAmount1 + betAmount2;
                 const totalProfit = guaranteedReturn - totalWagered;
                 const profitPercentage = (totalProfit / totalWagered) * 100;
-
-                displayResults(results2WayDiv, {
-                    isArb: true,
-                    profitPercentage,
-                    totalProfit,
-                    bets: [betAmount1, betAmount2],
-                    totalWagered,
-                    guaranteedReturn
-                });
+                displayResults(results2WayDiv, { isArb: true, profitPercentage, totalProfit, bets: [betAmount1, betAmount2], totalWagered, guaranteedReturn });
             } else {
-                displayResults(results2WayDiv, {
-                    isArb: false,
-                    impliedProbability: totalProb * 100
-                });
+                const totalLoss = totalWagered - guaranteedReturn;
+                const lossPercentage = (totalLoss / totalWagered) * 100;
+                displayResults(results2WayDiv, { isArb: false, impliedProbability: totalProb * 100, lossPercentage, totalLoss, bets: [betAmount1, betAmount2], totalWagered, guaranteedReturn });
             }
         }
 
-        /**
-         * Handles the calculation for 3-way arbitrage.
-         */
         function handleCalculate3Way() {
             const fixedBetAmount = parseFloat(document.getElementById('bet-amount-3way').value);
             const odds1 = parseOdds(document.getElementById('odds1-3way').value);
@@ -326,74 +289,57 @@
             const fixedBetOn = document.querySelector('input[name="fixed-bet-3way"]:checked').value;
 
             if (isNaN(fixedBetAmount) || !odds1 || !odds2 || !odds3) {
-                results3WayDiv.innerHTML = `<p class="text-center no-arb">Please enter a valid bet amount and all three odds.</p>`;
+                results3WayDiv.innerHTML = `<p class="text-center loss">Please enter a valid bet amount and all three odds.</p>`;
                 return;
             }
             
-            const prob1 = 1 / odds1;
-            const prob2 = 1 / odds2;
-            const prob3 = 1 / odds3;
-            const totalProb = prob1 + prob2 + prob3;
+            let betAmount1, betAmount2, betAmount3, guaranteedReturn;
+            if (fixedBetOn === '1') {
+                betAmount1 = fixedBetAmount;
+                guaranteedReturn = betAmount1 * odds1;
+                betAmount2 = guaranteedReturn / odds2;
+                betAmount3 = guaranteedReturn / odds3;
+            } else if (fixedBetOn === '2') {
+                betAmount2 = fixedBetAmount;
+                guaranteedReturn = betAmount2 * odds2;
+                betAmount1 = guaranteedReturn / odds1;
+                betAmount3 = guaranteedReturn / odds3;
+            } else {
+                betAmount3 = fixedBetAmount;
+                guaranteedReturn = betAmount3 * odds3;
+                betAmount1 = guaranteedReturn / odds1;
+                betAmount2 = guaranteedReturn / odds2;
+            }
+
+            const totalWagered = betAmount1 + betAmount2 + betAmount3;
+            const totalProb = (1 / odds1) + (1 / odds2) + (1 / odds3);
 
             if (totalProb < 1) {
-                let betAmount1, betAmount2, betAmount3, guaranteedReturn;
-
-                if (fixedBetOn === '1') {
-                    betAmount1 = fixedBetAmount;
-                    guaranteedReturn = betAmount1 * odds1;
-                    betAmount2 = guaranteedReturn / odds2;
-                    betAmount3 = guaranteedReturn / odds3;
-                } else if (fixedBetOn === '2') {
-                    betAmount2 = fixedBetAmount;
-                    guaranteedReturn = betAmount2 * odds2;
-                    betAmount1 = guaranteedReturn / odds1;
-                    betAmount3 = guaranteedReturn / odds3;
-                } else { // fixedBetOn === '3'
-                    betAmount3 = fixedBetAmount;
-                    guaranteedReturn = betAmount3 * odds3;
-                    betAmount1 = guaranteedReturn / odds1;
-                    betAmount2 = guaranteedReturn / odds2;
-                }
-
-                const totalWagered = betAmount1 + betAmount2 + betAmount3;
                 const totalProfit = guaranteedReturn - totalWagered;
                 const profitPercentage = (totalProfit / totalWagered) * 100;
-
-                displayResults(results3WayDiv, {
-                    isArb: true,
-                    profitPercentage,
-                    totalProfit,
-                    bets: [betAmount1, betAmount2, betAmount3],
-                    totalWagered,
-                    guaranteedReturn
-                });
+                displayResults(results3WayDiv, { isArb: true, profitPercentage, totalProfit, bets: [betAmount1, betAmount2, betAmount3], totalWagered, guaranteedReturn });
             } else {
-                displayResults(results3WayDiv, {
-                    isArb: false,
-                    impliedProbability: totalProb * 100
-                });
+                const totalLoss = totalWagered - guaranteedReturn;
+                const lossPercentage = (totalLoss / totalWagered) * 100;
+                displayResults(results3WayDiv, { isArb: false, impliedProbability: totalProb * 100, lossPercentage, totalLoss, bets: [betAmount1, betAmount2, betAmount3], totalWagered, guaranteedReturn });
             }
         }
 
-        /**
-         * Switches the visible calculator tab.
-         * @param {'2way'|'3way'} type - The calculator to show.
-         */
         function showCalculator(type) {
             if (type === '2way') {
                 calc2WayDiv.classList.remove('hidden');
                 calc3WayDiv.classList.add('hidden');
-                tab2Way.classList.add('tab-active');
-                tab2Way.classList.remove('tab-inactive');
-                tab3Way.classList.add('tab-inactive');
-                tab3Way.classList.remove('tab-active');
+                tab2Way.classList.add('tab-active', 'text-white');
+                tab2Way.classList.remove('tab-inactive', 'text-indigo-700');
+                tab3Way.classList.add('tab-inactive', 'text-indigo-700');
+                tab3Way.classList.remove('tab-active', 'text-white');
             } else {
                 calc2WayDiv.classList.add('hidden');
                 calc3WayDiv.classList.remove('hidden');
-                tab3Way.classList.add('tab-active');
-                tab3Way.classList.remove('tab-inactive');
-                tab2Way.classList.add('tab-inactive');
-                tab2Way.classList.remove('tab-active');
+                tab3Way.classList.add('tab-active', 'text-white');
+                tab3Way.classList.remove('tab-inactive', 'text-indigo-700');
+                tab2Way.classList.add('tab-inactive', 'text-indigo-700');
+                tab2Way.classList.remove('tab-active', 'text-white');
             }
         }
         
@@ -404,3 +350,4 @@
     </script>
 </body>
 </html>
+
