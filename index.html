@@ -136,15 +136,14 @@
                 </div>
             </div>
         </div>
-
-        <!-- Kalshi/Exchange Calculator -->
+        
+        <!-- Kalshi Calculator -->
         <div id="calculator-kalshi" class="hidden">
             <div class="bg-white p-6 rounded-2xl shadow-lg">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <!-- Inputs -->
                     <div class="space-y-4">
                         <h3 class="text-xl font-semibold text-gray-800 border-b pb-2">Enter Bet Details</h3>
-                        <p class="text-sm text-gray-500">This compares betting "Yes" on one platform vs. "No" on the other.</p>
                         <div>
                             <label for="bet-amount-kalshi" class="block text-sm font-medium text-gray-700 mb-1">Bet Amount ($)</label>
                             <input type="number" id="bet-amount-kalshi" value="10" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
@@ -153,25 +152,25 @@
                              <label class="block text-sm font-medium text-gray-700">Set bet amount for:</label>
                             <div class="flex items-center">
                                 <input type="radio" id="fixed-bet-sb" name="fixed-bet-kalshi" value="sb" class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500" checked>
-                                <label for="fixed-bet-sb" class="ml-2 block text-sm text-gray-900">Outcome 1 (Sportsbook)</label>
+                                <label for="fixed-bet-sb" class="ml-2 block text-sm text-gray-900">Outcome 1 (Sportsbook 'Yes' Side)</label>
                             </div>
-                            <input type="text" id="odds-sb" placeholder="Sportsbook Odds (-110 or 2.1)" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                            <input type="text" id="odds-sb" placeholder="Sportsbook Odds (-110 or 1.91)" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
                         </div>
                          <div class="space-y-3">
                             <div class="flex items-center">
                                 <input type="radio" id="fixed-bet-ex" name="fixed-bet-kalshi" value="ex" class="h-4 w-4 text-indigo-600 border-gray-300 focus:ring-indigo-500">
-                                <label for="fixed-bet-ex" class="ml-2 block text-sm text-gray-900">Outcome 2 (Exchange)</label>
+                                <label for="fixed-bet-ex" class="ml-2 block text-sm text-gray-900">Outcome 2 (Exchange 'No' Side)</label>
                             </div>
-                            <input type="number" id="price-exchange" placeholder="Exchange 'Yes' Price (e.g., 50)" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" min="0" max="100">
+                            <input type="number" id="price-exchange-no" placeholder="Exchange 'No' Price (e.g., 30)" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500" min="0" max="100">
                             <!-- Removed manual fee input, added volume tier dropdown -->
                             <div>
-                                <label for="kalshi-volume-tier" class="block text-sm font-medium text-gray-700 mb-1">Exchange 30-Day Volume (Taker)</label>
+                                <label for="kalshi-volume-tier" class="block text-sm font-medium text-gray-700 mb-1">30-Day Volume (Fee Tier)</label>
                                 <select id="kalshi-volume-tier" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
-                                    <option value="tier1">< $1M (1.0x Base Fee)</option>
-                                    <option value="tier2">$1M - $4.99M (0.7x Base Fee)</option>
-                                    <option value="tier3">$5M - $9.99M (0.4x Base Fee)</option>
-                                    <option value="tier4">$10M - $24.99M (0.2x Base Fee)</option>
-                                    <option value="tier5">$25M+ (0.0x Base Fee)</option>
+                                    <option value="1.0">Tier 1: < $1M (1.0x Base Fee)</option>
+                                    <option value="0.7">Tier 2: $1M - $10M (0.7x Base Fee)</option>
+                                    <option value="0.4">Tier 3: $10M - $100M (0.4x Base Fee)</option>
+                                    <option value="0.2">Tier 4: $100M - $250M (0.2x Base Fee)</option>
+                                    <option value="0.0">Tier 5: > $250M (0.0x Base Fee)</option>
                                 </select>
                             </div>
                         </div>
@@ -182,7 +181,7 @@
                     <div class="space-y-4">
                         <h3 class="text-xl font-semibold text-gray-800 border-b pb-2">Results</h3>
                         <div id="results-kalshi" class="p-4 rounded-lg result-card space-y-3">
-                            <p class="text-center text-gray-500">Enter odds, prices, and fees to see results.</p>
+                            <p class="text-center text-gray-500">Enter odds and bet amount to see results.</p>
                         </div>
                     </div>
                 </div>
@@ -236,19 +235,73 @@
             return value.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
         }
 
+        /**
+         * Calculates the Kalshi fee PER CONTRACT based on the official PDF.
+         * Fee = min(Payout Fee, Price Fee) * Volume Multiplier
+         * @param {number} contractPrice - The price of the contract (e.g., 0.70 for 70 cents).
+         * @param {number} volumeMultiplier - The multiplier from the user's tier (e.g., 1.0, 0.7).
+         * @returns {number} The final fee in dollars for a single contract.
+         */
+        function getKalshiFeePerContract(contractPrice, volumeMultiplier) {
+            // Per the PDF:
+            // 1. Payout Fee: 1.5% of $1.00 payout = $0.015
+            const payoutFee = 0.015;
+            // 2. Price Fee: 7.5% of the contract price
+            const priceFee = 0.075 * contractPrice;
+            
+            // The base fee is the *lesser* of the two.
+            const baseFee = Math.min(payoutFee, priceFee);
+            
+            // Apply the volume multiplier
+            const finalFee = baseFee * volumeMultiplier;
+            return finalFee;
+        }
+
+
         function displayResults(container, data) {
             let betSlips = '';
-            data.bets.forEach((bet, index) => {
-                betSlips += `
+            
+            // Standard Bet Slips
+            if (data.bets) {
+                data.bets.forEach((bet, index) => {
+                    betSlips += `
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">Bet on Outcome ${index + 1}:</span>
+                            <span class="font-bold text-gray-800">${formatCurrency(bet)}</span>
+                        </div>
+                    `;
+                });
+            }
+
+            // Custom Kalshi Bet Slips
+            if (data.isKalshi) {
+                betSlips = `
                     <div class="flex justify-between items-center">
-                        <span class="text-gray-600">Bet on Outcome ${index + 1}:</span>
-                        <span class="font-bold text-gray-800">${formatCurrency(bet)}</span>
+                        <span class="text-gray-600">Bet on Outcome 1 (SB):</span>
+                        <span class="font-bold text-gray-800">${formatCurrency(data.bets[0])}</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600">Bet on Outcome 2 (Ex) Stake:</span>
+                        <span class="font-bold text-gray-800">${formatCurrency(data.bets[1])}</span>
+                    </div>
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-gray-500 pl-4">Number of Contracts:</span>
+                        <span class="font-medium text-gray-600">${data.numContracts.toLocaleString()}</span>
+                    </div>
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-gray-500 pl-4">Fee Tier:</span>
+                        <span class="font-medium text-gray-600">${data.feeTier}</span>
+                    </div>
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-gray-500 pl-4">Exchange Fee Paid:</span>
+                        <span class="font-medium text-gray-600">${formatCurrency(data.feePaid)}</span>
                     </div>
                 `;
-            });
+            }
 
             if (data.isArb) {
                 container.innerHTML = `
+                    ${data.adjustmentNote || ''}
                     <div class="text-center mb-4">
                         <p class="text-lg font-semibold profit">Arbitrage Opportunity Found!</p>
                         <p class="text-3xl font-bold profit">${data.profitPercentage.toFixed(2)}%</p>
@@ -273,6 +326,7 @@
                 `;
             } else { // No arbitrage, show minimized loss
                 container.innerHTML = `
+                    ${data.adjustmentNote || ''}
                     <div class="text-center mb-4">
                         <p class="text-lg font-semibold loss">No Arbitrage Opportunity</p>
                         <p class="text-sm text-gray-600">(Implied Probability: ${data.impliedProbability.toFixed(2)}%)</p>
@@ -297,132 +351,6 @@
                         </div>
                     </div>
                 `;
-            }
-        }
-
-        function displayResultsKalshi(container, data) {
-            let betSlips = `
-                <div class="flex justify-between items-center">
-                    <span class="text-gray-600">Bet on Outcome 1 (SB):</span>
-                    <span class="font-bold text-gray-800">${formatCurrency(data.bets[0])}</span>
-                </div>
-                <div class="border-t border-gray-200 my-1"></div>
-                <div class="flex justify-between items-center">
-                    <span class="text-gray-600">Bet on Outcome 2 (Ex) Stake:</span>
-                    <span class="font-bold text-gray-800">${formatCurrency(data.bets[1])}</span>
-                </div>
-                <div class="flex justify-between items-center text-xs">
-                    <span class="text-gray-500 pl-4">Number of Contracts:</span>
-                    <span class="font-medium text-gray-600">${data.numContracts.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
-                </div>
-                <div class="flex justify-between items-center text-xs">
-                    <span class="text-gray-500 pl-4">Fee Tier:</span>
-                    <span class="font-medium text-gray-600">${data.feeTier}</span>
-                </div>
-                <div class="flex justify-between items-center text-xs">
-                    <span class="text-gray-500 pl-4">Exchange Fee Paid:</span>
-                    <span class="font-medium text-gray-600">${formatCurrency(data.feePaid)}</span>
-                </div>
-                <div class="flex justify-between items-center font-semibold">
-                    <span class="text-gray-600">Total Cost (Ex):</span>
-                    <span class="text-gray-800">${formatCurrency(data.bets[1] + data.feePaid)}</span>
-                </div>
-            `;
-
-            if (data.isArb) {
-                container.innerHTML = `
-                    <div class="text-center mb-4">
-                        <p class="text-lg font-semibold profit">Arbitrage Opportunity Found!</p>
-                        <p class="text-3xl font-bold profit">${data.profitPercentage.toFixed(2)}%</p>
-                    </div>
-                    <div class="space-y-2 text-sm">
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600">Total Profit:</span>
-                            <span class="font-bold text-lg profit">${formatCurrency(data.totalProfit)}</span>
-                        </div>
-                        <hr class="my-2">
-                        ${betSlips}
-                        <hr class="my-2">
-                        <div class="flex justify-between items-center font-semibold">
-                            <span class="text-gray-600">Total Wagered:</span>
-                            <span class="text-gray-900">${formatCurrency(data.totalWagered)}</span>
-                        </div>
-                        <div class="flex justify-between items-center font-semibold">
-                            <span class="text-gray-600">Guaranteed Return:</span>
-                            <span class="text-gray-900">${formatCurrency(data.guaranteedReturn)}</span>
-                        </div>
-                    </div>
-                `;
-            } else { // No arbitrage, show minimized loss
-                container.innerHTML = `
-                    <div class="text-center mb-4">
-                        <p class="text-lg font-semibold loss">No Arbitrage Opportunity</p>
-                        <p class="text-sm text-gray-600">(Implied Probability: ${data.impliedProbability.toFixed(2)}%)</p>
-                        <p class="text-3xl font-bold loss">-${data.lossPercentage.toFixed(2)}%</p>
-                    </div>
-                    <div class="space-y-2 text-sm">
-                        <div class="flex justify-between items-center">
-                            <span class="text-gray-600">Guaranteed Loss:</span>
-                            <span class="font-bold text-lg loss">${formatCurrency(data.totalLoss)}</span>
-                        </div>
-                        <hr class="my-2">
-                        <h4 class="font-semibold text-center text-gray-700">Bets for Minimized Loss</h4>
-                        ${betSlips}
-                        <hr class="my-2">
-                        <div class="flex justify-between items-center font-semibold">
-                            <span class="text-gray-600">Total Wagered:</span>
-                            <span class="text-gray-900">${formatCurrency(data.totalWagered)}</span>
-                        </div>
-                         <div class="flex justify-between items-center font-semibold">
-                            <span class="text-gray-600">Guaranteed Return:</span>
-                            <span class="text-gray-900">${formatCurrency(data.guaranteedReturn)}</span>
-                        </div>
-                    </div>
-                `;
-            }
-        }
-
-        // --- Helper function for Kalshi Fees ---
-        
-        // Price-based fee lookup table (Fee in $ per 100 contracts)
-        // [REMOVED incorrect table and function]
-        // const kalshiFeeTable = [ ... ];
-        // function getKalshiBaseFee(price) { ... }
-
-        /**
-         * Calculates the final taker fee *per contract* based on price and volume.
-         * Per Kalshi PDF: Fee = min(1.5% of Payout, 7.5% of Price) * VolumeMultiplier
-         * Payout is $1 per contract.
-         * @param {number} contractPrice - The price of the contract (e.g., 0.40 for 40 cents).
-         * @param {string} tier - The selected volume tier (e.g., "tier1").
-         * @returns {number} The final fee in dollars *per single contract*.
-         */
-        function getKalshiFeePerContract(contractPrice, tier) {
-            const payoutFee = 0.015; // 1.5% of $1.00 payout
-            const priceFee = 0.075 * contractPrice; // 7.5% of the contract price
-            
-            const baseFeePerContract = Math.min(payoutFee, priceFee);
-            const volumeMultiplier = getKalshiVolumeMultiplier(tier);
-            
-            const finalFeePerContract = baseFeePerContract * volumeMultiplier;
-            
-            // Kalshi fee cannot be negative (e.g., from 0 price)
-            return Math.max(0, finalFeePerContract);
-        }
-
-        /**
-         * Gets the volume-based multiplier for the fee.
-         * @param {string} tier - The selected tier value (e.g., "tier1").
-         * @returns {number} The multiplier (e.g., 1.0, 0.7).
-         */
-        function getKalshiVolumeMultiplier(tier) {
-            switch(tier) {
-                case 'tier1': return 1.0; // < $1M
-                case 'tier2': return 0.7; // $1M - $4.99M
-                case 'tier3': return 0.4; // $5M - $9.99M
-                case 'tier4': return 0.2; // $10M - $24.99M
-                case 'tier5': return 0.0; // $25M+
-                default: return 1.0;
             }
         }
 
@@ -507,121 +435,154 @@
                 displayResults(results3WayDiv, { isArb: false, impliedProbability: totalProb * 100, lossPercentage, totalLoss, bets: [betAmount1, betAmount2, betAmount3], totalWagered, guaranteedReturn });
             }
         }
-
+        
         function handleCalculateKalshi() {
             const fixedBetAmount = parseFloat(document.getElementById('bet-amount-kalshi').value);
             const oddsSB_raw = document.getElementById('odds-sb').value;
-            const priceEX_yes_raw = document.getElementById('price-exchange').value;
-            const selectedTier = document.getElementById('kalshi-volume-tier').value;
+            const priceEX_no_raw = document.getElementById('price-exchange-no').value; // Changed ID
+            const selectedTier = document.getElementById('kalshi-volume-tier');
+            const volumeMultiplier = parseFloat(selectedTier.value);
+            const feeTierText = selectedTier.options[selectedTier.selectedIndex].text;
             const fixedBetOn = document.querySelector('input[name="fixed-bet-kalshi"]:checked').value;
-            const feeTierText = document.getElementById('kalshi-volume-tier').options[document.getElementById('kalshi-volume-tier').selectedIndex].text;
 
             // --- Parse Inputs ---
             const D1 = parseOdds(oddsSB_raw); // Sportsbook "Yes" Odds
-            const kalshi_yes_price = parseFloat(priceEX_yes_raw) / 100;
+            const kalshi_no_price = parseFloat(priceEX_no_raw) / 100; // This is now the 'No' price directly
             
-            if (isNaN(fixedBetAmount) || !D1 || isNaN(kalshi_yes_price) || kalshi_yes_price <= 0 || kalshi_yes_price >= 1) {
+            if (isNaN(fixedBetAmount) || !D1 || isNaN(kalshi_no_price) || kalshi_no_price <= 0 || kalshi_no_price >= 1) {
                 resultsKalshiDiv.innerHTML = `<p class="text-center loss">Please enter valid amounts, odds, and a price between 0 and 100.</p>`;
                 return;
             }
 
             // --- Calculate Exchange Effective Odds ---
-            const kalshi_no_price = 1.0 - kalshi_yes_price;
             
             // Calculate the fee *per contract*
-            const finalFeePerContract = getKalshiFeePerContract(kalshi_no_price, selectedTier);
+            const feePerContract = getKalshiFeePerContract(kalshi_no_price, volumeMultiplier);
+            
+            // The "Odds" (D2) for the exchange side are based on the *total cost* to get a $1 payout.
+            // Total cost = price + fee
+            // But the fee is per contract, and # of contracts = 1 / price. This is complex.
+            // Let's calculate based on a $1 payout, which is 1 contract.
+            // Cost to buy 1 contract = (1 * kalshi_no_price) + (1 * feePerContract)
+            // Effective Decimal Odds (D2) = Payout / Total Cost = $1.00 / (kalshi_no_price + feePerContract)
+            const D2 = 1.0 / (kalshi_no_price + feePerContract);
 
-            // The total cost to acquire one contract (which pays out $1)
-            const totalCostPerContract = kalshi_no_price + finalFeePerContract;
-            
-            // The effective decimal odds are Payout / TotalCost
-            // If total cost is 0 (e.g., 0 price and 0 fee), odds are infinite. Handle this.
-            const D2_eff = (totalCostPerContract <= 0) ? Infinity : (1.0 / totalCostPerContract);
-            
-            
-            // --- Calculate Bets ---
-            let betAmount1, betAmount2_stake, betAmount2_cost, guaranteedReturn, feePaid, numContracts;
+            // --- Variable Declaration ---
+            let betAmount1, betAmount2_stake, guaranteedReturn_ideal, numContracts_ideal;
+            let numContracts_whole = 0;
+            let adjustmentNote = '';
 
+            // --- Determine "Ideal" (Fractional) Bets ---
             if (fixedBetOn === 'sb') {
                 betAmount1 = fixedBetAmount;
-                guaranteedReturn = betAmount1 * D1;
-                // Each contract pays out $1, so numContracts = guaranteedReturn
-                numContracts = guaranteedReturn;
-                betAmount2_stake = numContracts * kalshi_no_price;
-                feePaid = numContracts * finalFeePerContract;
-                betAmount2_cost = betAmount2_stake + feePaid;
+                guaranteedReturn_ideal = betAmount1 * D1; // This is the $ payout
+                // On Kalshi, $1 payout = 1 contract. So guaranteedReturn = # of contracts.
+                numContracts_ideal = guaranteedReturn_ideal;
             } else { // fixedBetOn === 'ex'
+                // This is complex. User enters a STAKE.
                 betAmount2_stake = fixedBetAmount;
-                // numContracts = Stake / PricePerContract
-                numContracts = (kalshi_no_price > 0) ? (betAmount2_stake / kalshi_no_price) : 0;
-                
-                guaranteedReturn = numContracts * 1.0; // Payout is $1 per contract
-                feePaid = numContracts * finalFeePerContract;
-                betAmount2_cost = betAmount2_stake + feePaid;
-                
-                betAmount1 = guaranteedReturn / D1;
+                // How many contracts does this stake buy?
+                // Stake = numContracts * (price + fee) -- This is wrong.
+                // Stake = numContracts * price. Fee is separate.
+                // Let's assume Bet Amount is the STAKE.
+                numContracts_ideal = betAmount2_stake / kalshi_no_price;
+                guaranteedReturn_ideal = numContracts_ideal; // $1 payout per contract
             }
 
-            const totalWagered = betAmount1 + betAmount2_cost;
-            const totalProb = (1 / D1) + (1 / D2_eff); // Use effective odds for arb check
+            // --- Step 2: Adjust to Whole Contracts ---
+            numContracts_whole = Math.floor(numContracts_ideal);
+            if (numContracts_whole === 0) {
+                 resultsKalshiDiv.innerHTML = `<p class="text-center loss">Bet amount is too small to purchase a single contract.</p>`;
+                return;
+            }
+            
+            if (numContracts_ideal !== numContracts_whole) {
+                 adjustmentNote = `
+                    <div classclass="p-3 mb-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 rounded-md">
+                        <p class="font-bold">Bet Adjusted for Whole Contracts</p>
+                        <p class="text-sm">Ideal bet was ${numContracts_ideal.toFixed(2)} contracts. This was rounded down to ${numContracts_whole} contracts. Stakes have been re-calculated.</p>
+                    </div>
+                `;
+            }
 
-            if (totalProb < 1 && isFinite(totalProb)) {
+            // --- Step 3: Re-Calculate Both Sides Based on Whole Contracts ---
+            const guaranteedReturn = numContracts_whole; // $1 payout per contract
+            
+            // Re-calculate Sportsbook bet
+            betAmount1 = guaranteedReturn / D1;
+            
+            // Re-calculate Exchange stake
+            betAmount2_stake = numContracts_whole * kalshi_no_price;
+            
+            // Calculate the final fee
+            const feePaid = numContracts_whole * feePerContract;
+
+            // --- Final Calculation ---
+            const totalWagered = betAmount1 + betAmount2_stake + feePaid;
+            const totalProb = (1 / D1) + (1 / D2); // Use effective odds for probability
+
+            if (totalProb < 1) {
                 const totalProfit = guaranteedReturn - totalWagered;
                 const profitPercentage = (totalProfit / totalWagered) * 100;
-                displayResultsKalshi(resultsKalshiDiv, { 
+                displayResults(resultsKalshiDiv, { 
                     isArb: true, 
+                    isKalshi: true, 
                     profitPercentage, 
                     totalProfit, 
                     bets: [betAmount1, betAmount2_stake], 
                     feePaid,
                     feeTier: feeTierText,
-                    numContracts: numContracts,
+                    numContracts: numContracts_whole,
                     totalWagered, 
-                    guaranteedReturn 
+                    guaranteedReturn,
+                    adjustmentNote
                 });
             } else {
                 const totalLoss = totalWagered - guaranteedReturn;
                 const lossPercentage = (totalLoss / totalWagered) * 100;
-                displayResultsKalshi(resultsKalshiDiv, { 
+                displayResults(resultsKalshiDiv, { 
                     isArb: false, 
+                    isKalshi: true, 
                     impliedProbability: totalProb * 100, 
                     lossPercentage, 
                     totalLoss, 
                     bets: [betAmount1, betAmount2_stake],
                     feePaid, 
                     feeTier: feeTierText,
-                    numContracts: numContracts,
+                    numContracts: numContracts_whole,
                     totalWagered, 
-                    guaranteedReturn 
+                    guaranteedReturn,
+                    adjustmentNote
                 });
             }
         }
 
         function showCalculator(type) {
-            // Reset all
             calc2WayDiv.classList.add('hidden');
             calc3WayDiv.classList.add('hidden');
             calcKalshiDiv.classList.add('hidden');
             
-            tab2Way.classList.add('tab-inactive', 'text-indigo-700');
             tab2Way.classList.remove('tab-active', 'text-white');
-            tab3Way.classList.add('tab-inactive', 'text-indigo-700');
             tab3Way.classList.remove('tab-active', 'text-white');
-            tabKalshi.classList.add('tab-inactive', 'text-indigo-700');
             tabKalshi.classList.remove('tab-active', 'text-white');
+            
+            tab2Way.classList.add('tab-inactive', 'text-indigo-700');
+            tab3Way.classList.add('tab-inactive', 'text-indigo-700');
+            tabKalshi.classList.add('tab-inactive', 'text-indigo-700');
+
 
             if (type === '2way') {
                 calc2WayDiv.classList.remove('hidden');
-                tab2Way.classList.add('tab-active', 'text-white');
-                tab2Way.classList.remove('tab-inactive', 'text-indigo-700');
+                tab2Way.classList.add('tab-active');
+                tab2Way.classList.remove('tab-inactive');
             } else if (type === '3way') {
                 calc3WayDiv.classList.remove('hidden');
-                tab3Way.classList.add('tab-active', 'text-white');
-                tab3Way.classList.remove('tab-inactive', 'text-indigo-700');
+                tab3Way.classList.add('tab-active');
+                tab3Way.classList.remove('tab-inactive');
             } else if (type === 'kalshi') {
                 calcKalshiDiv.classList.remove('hidden');
-                tabKalshi.classList.add('tab-active', 'text-white');
-                tabKalshi.classList.remove('tab-inactive', 'text-indigo-700');
+                tabKalshi.classList.add('tab-active');
+                tabKalshi.classList.remove('tab-inactive');
             }
         }
         
@@ -633,6 +594,7 @@
     </script>
 </body>
 </html>
+
 
 
 
