@@ -44,6 +44,7 @@
             <button id="tab-2way" class="py-2 px-6 font-semibold rounded-t-lg -mb-px tab-active" onclick="showCalculator('2way')">2-Way Bet</button>
             <button id="tab-3way" class="py-2 px-6 font-semibold rounded-t-lg tab-inactive" onclick="showCalculator('3way')">3-Way Bet</button>
             <button id="tab-kalshi" class="py-2 px-6 font-semibold rounded-t-lg tab-inactive" onclick="showCalculator('kalshi')">Sportsbook vs. Exchange</button>
+            <button id="tab-converter" class="py-2 px-6 font-semibold rounded-t-lg tab-inactive" onclick="showCalculator('converter')">Odds Converter</button>
         </div>
 
         <!-- 2-Way Calculator -->
@@ -188,6 +189,35 @@
             </div>
         </div>
 
+        <!-- Odds Converter -->
+        <div id="calculator-converter" class="hidden">
+            <div class="bg-white p-6 rounded-2xl shadow-lg">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Inputs -->
+                    <div class="space-y-4">
+                        <h3 class="text-xl font-semibold text-gray-800 border-b pb-2">Enter Odds to Convert</h3>
+                        <div class="space-y-3">
+                            <label for="odds1-converter" class="block text-sm font-medium text-gray-700">Odds 1</label>
+                            <input type="text" id="odds1-converter" placeholder="e.g., +170, 1.91, or 35%" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                         <div class="space-y-3">
+                            <label for="odds2-converter" class="block text-sm font-medium text-gray-700">Odds 2</label>
+                            <input type="text" id="odds2-converter" placeholder="e.g., -190, 2.2, or 65%" class="w-full p-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <button id="calculate-converter" class="w-full bg-indigo-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-indigo-700 transition duration-300 shadow-md">Convert</de>
+                    </div>
+
+                    <!-- Results -->
+                    <div class="space-y-4">
+                        <h3 class="text-xl font-semibold text-gray-800 border-b pb-2">Implied Probability</h3>
+                        <div id="results-converter" class="p-4 rounded-lg result-card space-y-3">
+                            <p class="text-center text-gray-500">Enter odds to see implied percentages.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -195,17 +225,21 @@
         const tab2Way = document.getElementById('tab-2way');
         const tab3Way = document.getElementById('tab-3way');
         const tabKalshi = document.getElementById('tab-kalshi');
+        const tabConverter = document.getElementById('tab-converter');
         const calc2WayDiv = document.getElementById('calculator-2way');
         const calc3WayDiv = document.getElementById('calculator-3way');
         const calcKalshiDiv = document.getElementById('calculator-kalshi');
+        const calcConverterDiv = document.getElementById('calculator-converter');
         
         const calculate2WayBtn = document.getElementById('calculate-2way');
         const calculate3WayBtn = document.getElementById('calculate-3way');
         const calculateKalshiBtn = document.getElementById('calculate-kalshi');
+        const calculateConverterBtn = document.getElementById('calculate-converter');
         
         const results2WayDiv = document.getElementById('results-2way');
         const results3WayDiv = document.getElementById('results-3way');
         const resultsKalshiDiv = document.getElementById('results-kalshi');
+        const resultsConverterDiv = document.getElementById('results-converter');
 
         // --- Core Logic ---
 
@@ -217,17 +251,47 @@
             return null;
         }
 
+        function convertDecimalToAmerican(decimalOdds) {
+            if (isNaN(decimalOdds) || decimalOdds <= 1) return 'N/A';
+            let americanOdds;
+            if (decimalOdds >= 2.0) {
+                americanOdds = (decimalOdds - 1) * 100;
+                return `+${americanOdds.toFixed(0)}`;
+            } else {
+                americanOdds = -100 / (decimalOdds - 1);
+                return `${americanOdds.toFixed(0)}`;
+            }
+        }
+
         function parseOdds(oddsString) {
             if (!oddsString || oddsString.trim() === '') return null;
             const trimmed = oddsString.trim();
+
+            // Case 1: Percentage (e.g., 70%)
+            // Must include '%' to avoid ambiguity with decimal odds < 100
+            if (trimmed.endsWith('%')) {
+                const prob = parseFloat(trimmed.slice(0, -1));
+                if (isNaN(prob) || prob <= 0 || prob >= 100) return null;
+                return 1 / (prob / 100); // Convert probability to decimal odds
+            }
+
+            // Case 2: American (e.g., +150, -110)
             if (trimmed.startsWith('+') || trimmed.startsWith('-')) {
                 return convertAmericanToDecimal(Number(trimmed));
             }
+            
             const odds = parseFloat(trimmed);
             if (isNaN(odds)) return null;
+
+            // Case 3: Decimal with a dot (e.g., 1.91)
             if (trimmed.includes('.') && odds > 1) return odds;
+
+            // Case 4: American as integer (e.g., 150, 200)
             if (odds >= 100 && Math.floor(odds) === odds) return convertAmericanToDecimal(odds);
+            
+            // Case 5: Decimal as number > 1 (e.g., 2, 5)
             if (odds > 1) return odds;
+            
             return null;
         }
 
@@ -557,18 +621,74 @@
             }
         }
 
+        function handleCalculateConverter() {
+            const odds1_raw = document.getElementById('odds1-converter').value;
+            const odds2_raw = document.getElementById('odds2-converter').value;
+
+            const D1 = parseOdds(odds1_raw);
+            const D2 = parseOdds(odds2_raw);
+
+            if (!D1 || !D2) {
+                resultsConverterDiv.innerHTML = `<p class="text-center loss">Please enter two valid odds.</p>`;
+                return;
+            }
+
+            const pct1 = (1 / D1) * 100;
+            const pct2 = (1 / D2) * 100;
+            const totalProb = pct1 + pct2;
+            const vig = totalProb - 100;
+
+            // New part: Convert back to American odds
+            const american1 = convertDecimalToAmerican(D1);
+            const american2 = convertDecimalToAmerican(D2);
+
+            resultsConverterDiv.innerHTML = `
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600">Odds 1 Implied %:</span>
+                        <span class="font-bold text-lg text-gray-800">${pct1.toFixed(2)}%</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600">Odds 1 American:</span>
+                        <span class="font-bold text-lg text-gray-800">${american1}</span>
+                    </div>
+                    <hr class="my-2 border-dashed">
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600">Odds 2 Implied %:</span>
+                        <span class="font-bold text-lg text-gray-800">${pct2.toFixed(2)}%</span>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600">Odds 2 American:</span>
+                        <span class="font-bold text-lg text-gray-800">${american2}</span>
+                    </div>
+                    <hr class="my-2">
+                    <div class="flex justify-between items-center font-semibold">
+                        <span class="text-gray-600">Total Implied %:</span>
+                        <span class="text-gray-900">${totalProb.toFixed(2)}%</span>
+                    </div>
+                    <div class="flex justify-between items-center font-semibold">
+                        <span class="text-gray-600">House Advantage (Vig):</span>
+                        <span class="font-bold ${vig > 0 ? 'loss' : 'profit'}">${vig.toFixed(2)}%</span>
+                    </div>
+                </div>
+            `;
+        }
+
         function showCalculator(type) {
             calc2WayDiv.classList.add('hidden');
             calc3WayDiv.classList.add('hidden');
             calcKalshiDiv.classList.add('hidden');
+            calcConverterDiv.classList.add('hidden');
             
             tab2Way.classList.remove('tab-active', 'text-white');
             tab3Way.classList.remove('tab-active', 'text-white');
             tabKalshi.classList.remove('tab-active', 'text-white');
+            tabConverter.classList.remove('tab-active', 'text-white');
             
             tab2Way.classList.add('tab-inactive', 'text-indigo-700');
             tab3Way.classList.add('tab-inactive', 'text-indigo-700');
             tabKalshi.classList.add('tab-inactive', 'text-indigo-700');
+            tabConverter.classList.add('tab-inactive', 'text-indigo-700');
 
 
             if (type === '2way') {
@@ -583,6 +703,10 @@
                 calcKalshiDiv.classList.remove('hidden');
                 tabKalshi.classList.add('tab-active');
                 tabKalshi.classList.remove('tab-inactive');
+            } else if (type === 'converter') {
+                calcConverterDiv.classList.remove('hidden');
+                tabConverter.classList.add('tab-active');
+                tabConverter.classList.remove('tab-inactive');
             }
         }
         
@@ -590,10 +714,13 @@
         calculate2WayBtn.addEventListener('click', handleCalculate2Way);
         calculate3WayBtn.addEventListener('click', handleCalculate3Way);
         calculateKalshiBtn.addEventListener('click', handleCalculateKalshi);
+        calculateConverterBtn.addEventListener('click', handleCalculateConverter);
 
     </script>
 </body>
 </html>
+
+
 
 
 
